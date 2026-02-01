@@ -1,0 +1,16 @@
+# Backend
+*.db
+*.db-shm
+*.db-wal
+bin/
+obj/
+.vs/
+
+# Frontend
+node_modules/
+dist/
+.vite/
+
+# Geral
+.DS_Store
+*.log
