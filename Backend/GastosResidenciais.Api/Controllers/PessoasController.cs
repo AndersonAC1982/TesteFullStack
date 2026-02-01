@@ -1,7 +1,6 @@
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using GastosResidenciais.Api.Data;
 using GastosResidenciais.Api.Models;
+using GastosResidenciais.Api.Services.Interfaces;
+using Microsoft.AspNetCore.Mvc;
 
 namespace GastosResidenciais.Api.Controllers
 {
@@ -9,100 +8,41 @@ namespace GastosResidenciais.Api.Controllers
     [ApiController]
     public class PessoasController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IPessoaService _pessoaService;
 
-        public PessoasController(AppDbContext context)
+        public PessoasController(IPessoaService pessoaService)
         {
-            _context = context;
+            _pessoaService = pessoaService;
         }
 
-        // GET: api/Pessoas
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Pessoa>>> GetPessoas()
         {
-            return await _context.Pessoas.ToListAsync();
+            var pessoas = await _pessoaService.ListarTodasAsync();
+            return Ok(pessoas);
         }
 
-        // GET: api/Pessoas/5
-        [HttpGet("{id}")]
-        public async Task<ActionResult<Pessoa>> GetPessoa(int id)
-        {
-            var pessoa = await _context.Pessoas.FindAsync(id);
-
-            if (pessoa == null)
-            {
-                return NotFound(new { mensagem = "Pessoa não encontrada" });
-            }
-
-            return pessoa;
-        }
-
-        // POST: api/Pessoas
         [HttpPost]
         public async Task<ActionResult<Pessoa>> PostPessoa(Pessoa pessoa)
         {
-            if (await _context.Pessoas.AnyAsync(p => p.Cpf == pessoa.Cpf))
-            {
-                return BadRequest(new { mensagem = "CPF já cadastrado" });
-            }
-
-            _context.Pessoas.Add(pessoa);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction(nameof(GetPessoa), new { id = pessoa.Id }, pessoa);
+            var novaPessoa = await _pessoaService.CriarAsync(pessoa);
+            return CreatedAtAction(nameof(GetPessoas), new { id = novaPessoa.Id }, novaPessoa);
         }
 
-        // PUT: api/Pessoas/5
-        [HttpPut("{id}")]
-        public async Task<IActionResult> PutPessoa(int id, Pessoa pessoa)
-        {
-            if (id != pessoa.Id)
-            {
-                return BadRequest(new { mensagem = "ID inconsistente" });
-            }
-
-            if (await _context.Pessoas.AnyAsync(p => p.Cpf == pessoa.Cpf && p.Id != id))
-            {
-                return BadRequest(new { mensagem = "CPF já cadastrado para outra pessoa" });
-            }
-
-            _context.Entry(pessoa).State = EntityState.Modified;
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!await _context.Pessoas.AnyAsync(e => e.Id == id))
-                {
-                    return NotFound(new { mensagem = "Pessoa não encontrada" });
-                }
-                throw;
-            }
-
-            return NoContent();
-        }
-
-        // DELETE: api/Pessoas/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeletePessoa(int id)
         {
-            var pessoa = await _context.Pessoas.FindAsync(id);
-            if (pessoa == null)
+            try
             {
-                return NotFound(new { mensagem = "Pessoa não encontrada" });
+                var sucesso = await _pessoaService.DeletarAsync(id);
+                if (!sucesso) return NotFound();
+                return NoContent();
             }
-
-            if (await _context.Transacoes.AnyAsync(t => t.PessoaId == id))
+            catch (InvalidOperationException ex)
             {
-                return BadRequest(new { mensagem = "Não é possível excluir pessoa com transações cadastradas" });
+                // Retorna erro de negócio caso a pessoa tenha vínculos ativos
+                return BadRequest(new { message = ex.Message });
             }
-
-            _context.Pessoas.Remove(pessoa);
-            await _context.SaveChangesAsync();
-
-            return NoContent();
         }
     }
 }

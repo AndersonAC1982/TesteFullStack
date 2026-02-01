@@ -1,12 +1,21 @@
 import { useState, useEffect } from 'react'
 import api from '../services/api'
 import { Categoria } from '../types'
+import ConfirmModal from '../components/ConfirmModal'
+import LoadingSpinner from '../components/LoadingSpinner'
 
 export default function Categorias() {
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [nome, setNome] = useState('')
   const [editando, setEditando] = useState<number | null>(null)
   const [erro, setErro] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [salvando, setSalvando] = useState(false)
+  const [modalExcluir, setModalExcluir] = useState<{ isOpen: boolean; id: number | null; nome: string }>({
+    isOpen: false,
+    id: null,
+    nome: ''
+  })
 
   useEffect(() => {
     carregarCategorias()
@@ -14,16 +23,20 @@ export default function Categorias() {
 
   const carregarCategorias = async () => {
     try {
+      setLoading(true)
       const response = await api.get('/categorias')
       setCategorias(response.data)
     } catch (error) {
       setErro('Erro ao carregar categorias')
+    } finally {
+      setLoading(false)
     }
   }
 
   const salvar = async () => {
     try {
       setErro('')
+      setSalvando(true)
       if (editando) {
         await api.put(`/categorias/${editando}`, { id: editando, nome })
       } else {
@@ -32,7 +45,9 @@ export default function Categorias() {
       limpar()
       carregarCategorias()
     } catch (error: any) {
-      setErro(error.response?.data?.mensagem || 'Erro ao salvar')
+      setErro(error.response?.data?.mensagem  'Erro ao salvar')
+    } finally {
+      setSalvando(false)
     }
   }
 
@@ -41,13 +56,20 @@ export default function Categorias() {
     setEditando(categoria.id)
   }
 
-  const excluir = async (id: number) => {
-    if (!confirm('Deseja realmente excluir?')) return
+  const abrirModalExcluir = (id: number, nome: string) => {
+    setModalExcluir({ isOpen: true, id, nome })
+  }
+
+  const confirmarExclusao = async () => {
+    if (!modalExcluir.id) return
+
     try {
-      await api.delete(`/categorias/${id}`)
+      await api.delete(`/categorias/${modalExcluir.id}`)
+      setModalExcluir({ isOpen: false, id: null, nome: '' })
       carregarCategorias()
     } catch (error: any) {
-      setErro(error.response?.data?.mensagem || 'Erro ao excluir')
+      setErro(error.response?.data?.mensagem  'Erro ao excluir')
+      setModalExcluir({ isOpen: false, id: null, nome: '' })
     }
   }
 
@@ -70,14 +92,15 @@ export default function Categorias() {
           placeholder="Nome da Categoria"
           value={nome}
           onChange={(e) => setNome(e.target.value)}
+          disabled={salvando}
         />
 
         <div className="button-group">
-          <button onClick={salvar} className="btn-primary">
-            {editando ? 'Atualizar' : 'Cadastrar'}
+          <button onClick={salvar} className="btn-primary" disabled={salvando}>
+            {salvando ? 'Salvando...' : editando ? 'Atualizar' : 'Cadastrar'}
           </button>
           {editando && (
-            <button onClick={limpar} className="btn-secondary">
+            <button onClick={limpar} className="btn-secondary" disabled={salvando}>
               Cancelar
             </button>
           )}
@@ -86,32 +109,55 @@ export default function Categorias() {
 
       <div className="table-card">
         <h3>Categorias Cadastradas</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Nome</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {categorias.map((categoria) => (
-              <tr key={categoria.id}>
-                <td>{categoria.id}</td>
-                <td>{categoria.nome}</td>
-                <td>
-                  <button onClick={() => editar(categoria)} className="btn-edit">
-                    Editar
-                  </button>
-                  <button onClick={() => excluir(categoria.id)} className="btn-delete">
-                    Excluir
-                  </button>
-                </td>
+        {loading ? (
+          <LoadingSpinner message="Carregando categorias..." />
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Nome</th>
+                <th>Opções</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {categorias.map((categoria) => (
+                <tr key={categoria.id}>
+                  <td>{categoria.id}</td>
+                  <td>{categoria.nome}</td>
+                  <td>
+                    <button onClick={() => editar(categoria)} className="btn-edit">
+                      Editar
+                    </button>
+                    <button onClick={() => abrirModalExcluir(categoria.id, categoria.nome)} className="btn-delete">
+                      Excluir
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
+
+      <ConfirmModal
+        isOpen={modalExcluir.isOpen}
+        title="Confirmar Exclusão"
+        message={
+          <div>
+            <p>Tem certeza que deseja excluir a categoria:</p>
+            <p style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>{modalExcluir.nome}?</p>
+            <p style={{ marginTop: '1rem', color: '#c62828' }}>
+              Essa alteração será permanente..
+            </p>
+          </div>
+        }
+        onConfirm={confirmarExclusao}
+        onCancel={() => setModalExcluir({ isOpen: false, id: null, nome: '' })}
+        confirmText="Sim, excluir"
+        cancelText="Cancelar"
+        type="danger"
+      />
     </div>
   )
 }

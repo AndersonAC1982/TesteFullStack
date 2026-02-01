@@ -1,231 +1,65 @@
-import { useState, useEffect } from 'react'
-import api from '../services/api'
-import { Transacao, Pessoa, Categoria } from '../types'
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 
-export default function Transacoes() {
-  const [transacoes, setTransacoes] = useState<Transacao[]>([])
-  const [pessoas, setPessoas] = useState<Pessoa[]>([])
-  const [categorias, setCategorias] = useState<Categoria[]>([])
+interface Transacao {
+  id: number;
+  descricao: string;
+  valor: number;
+  tipo: string;
+  data: string;
+  pessoaId: number;
+  categoriaId: number;
+}
 
-  const [descricao, setDescricao] = useState('')
-  const [valor, setValor] = useState('')
-  const [tipo, setTipo] = useState<'Receita' | 'Despesa'>('Despesa')
-  const [data, setData] = useState('')
-  const [pessoaId, setPessoaId] = useState('')
-  const [categoriaId, setCategoriaId] = useState('')
-  const [editando, setEditando] = useState<number | null>(null)
-  const [erro, setErro] = useState('')
+// Gerenciamento de lançamentos financeiros Receitas e Despesas
+const Transacoes = () => {
+  const [transacoes, setTransacoes] = useState<Transacao[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    carregarDados()
-  }, [])
+    carregarDados();
+  }, []);
 
   const carregarDados = async () => {
     try {
-      const [transRes, pesRes, catRes] = await Promise.all([
-        api.get('/transacoes'),
-        api.get('/pessoas'),
-        api.get('/categorias')
-      ])
-      setTransacoes(transRes.data)
-      setPessoas(pesRes.data)
-      setCategorias(catRes.data)
-    } catch (error) {
-      setErro('Erro ao carregar dados')
+      const res = await axios.get('http:// localhost5000apitransacoes
+      setTransacoes(res.data);
+    } catch (err) {
+
+    } finally {
+      setLoading(false);
     }
-  }
+  };
 
-  const extrairMensagemErro = (error: any): string => {
-    const data = error.response?.data
-    if (data?.mensagem) return data.mensagem
-    if (data?.errors && typeof data.errors === 'object') {
-      const mensagens = Object.values(data.errors).flat()
-      return Array.isArray(mensagens) ? mensagens.join(' ') : String(mensagens)
-    }
-    return data?.title || 'Erro ao salvar. Verifique se todos os campos foram preenchidos.'
-  }
-
-  const salvar = async () => {
-    try {
-      setErro('')
-
-      const valorNum = parseFloat(valor)
-      const pessoaIdNum = parseInt(pessoaId, 10)
-      const categoriaIdNum = parseInt(categoriaId, 10)
-
-      if (!descricao.trim()) {
-        setErro('Informe a descrição.')
-        return
-      }
-      if (isNaN(valorNum) || valorNum <= 0) {
-        setErro('Informe um valor válido (maior que zero).')
-        return
-      }
-      if (!data) {
-        setErro('Informe a data.')
-        return
-      }
-      if (!pessoaId || isNaN(pessoaIdNum)) {
-        setErro('Selecione uma pessoa.')
-        return
-      }
-      if (!categoriaId || isNaN(categoriaIdNum)) {
-        setErro('Selecione uma categoria.')
-        return
-      }
-
-      const dados = {
-        descricao: descricao.trim(),
-        valor: valorNum,
-        tipo,
-        data,
-        pessoaId: pessoaIdNum,
-        categoriaId: categoriaIdNum
-      }
-
-      if (editando) {
-        await api.put(`/transacoes/${editando}`, { ...dados, id: editando })
-      } else {
-        await api.post('/transacoes', dados)
-      }
-      limpar()
-      carregarDados()
-    } catch (error: any) {
-      setErro(extrairMensagemErro(error))
-    }
-  }
-
-  const editar = (transacao: Transacao) => {
-    setDescricao(transacao.descricao)
-    setValor(transacao.valor.toString())
-    setTipo(transacao.tipo)
-    setData(transacao.data.split('T')[0])
-    setPessoaId(transacao.pessoaId.toString())
-    setCategoriaId(transacao.categoriaId.toString())
-    setEditando(transacao.id)
-  }
-
-  const excluir = async (id: number) => {
-    if (!confirm('Deseja realmente excluir?')) return
-    try {
-      await api.delete(`/transacoes/${id}`)
-      carregarDados()
-    } catch (error: any) {
-      setErro(error.response?.data?.mensagem || 'Erro ao excluir')
-    }
-  }
-
-  const limpar = () => {
-    setDescricao('')
-    setValor('')
-    setTipo('Despesa')
-    setData('')
-    setPessoaId('')
-    setCategoriaId('')
-    setEditando(null)
-    setErro('')
-  }
+  if (loading) return <p className="text-center">Carregando lançamentos...</p>;
 
   return (
-    <div className="page">
-      <h2>Gerenciar Transações</h2>
-
-      <div className="form-card">
-        <h3>{editando ? 'Editar Transação' : 'Nova Transação'}</h3>
-        {erro && <div className="erro">{erro}</div>}
-
-        <input
-          type="text"
-          placeholder="Descrição"
-          value={descricao}
-          onChange={(e) => setDescricao(e.target.value)}
-        />
-
-        <input
-          type="number"
-          placeholder="Valor"
-          value={valor}
-          onChange={(e) => setValor(e.target.value)}
-          step="0.01"
-        />
-
-        <select value={tipo} onChange={(e) => setTipo(e.target.value as 'Receita' | 'Despesa')}>
-          <option value="Receita">Receita</option>
-          <option value="Despesa">Despesa</option>
-        </select>
-
-        <input
-          type="date"
-          value={data}
-          onChange={(e) => setData(e.target.value)}
-        />
-
-        <select value={pessoaId} onChange={(e) => setPessoaId(e.target.value)}>
-          <option value="">Selecione uma pessoa</option>
-          {pessoas.map((p) => (
-            <option key={p.id} value={p.id}>{p.nome}</option>
-          ))}
-        </select>
-
-        <select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)}>
-          <option value="">Selecione uma categoria</option>
-          {categorias.map((c) => (
-            <option key={c.id} value={c.id}>{c.nome}</option>
-          ))}
-        </select>
-
-        <div className="button-group">
-          <button onClick={salvar} className="btn-primary">
-            {editando ? 'Atualizar' : 'Cadastrar'}
-          </button>
-          {editando && (
-            <button onClick={limpar} className="btn-secondary">
-              Cancelar
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div className="table-card">
-        <h3>Transações Cadastradas</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Descrição</th>
-              <th>Valor</th>
-              <th>Tipo</th>
-              <th>Data</th>
-              <th>Pessoa</th>
-              <th>Categoria</th>
-              <th>Ações</th>
+    <div className="bg-white p-6 rounded shadow">
+      <h2 className="text-2xl font-bold mb-4">Transações</h2>
+      <table className="w-full text-left border-collapse">
+        <thead>
+          <tr className="border-b">
+            <th className="py-2">Descrição</th>
+            <th className="py-2">Valor</th>
+            <th className="py-2">Tipo</th>
+            <th className="py-2">Data</th>
+          </tr>
+        </thead>
+        <tbody>
+          {transacoes.map(t => (
+            <tr key={t.id} className="border-b hover:bg-gray-50">
+              <td className="py-2">{t.descricao}</td>
+              <td className={`py-2 font-bold ${t.tipo === 'Receita' ? 'text-green-600' : 'text-red-600'}`}>
+                {t.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+              </td>
+              <td className="py-2">{t.tipo}</td>
+              <td className="py-2">{new Date(t.data).toLocaleDateString('pt-BR')}</td>
             </tr>
-          </thead>
-          <tbody>
-            {transacoes.map((transacao) => (
-              <tr key={transacao.id}>
-                <td>{transacao.id}</td>
-                <td>{transacao.descricao}</td>
-                <td className={transacao.tipo === 'Receita' ? 'receita' : 'despesa'}>
-                  R$ {transacao.valor.toFixed(2)}
-                </td>
-                <td>{transacao.tipo}</td>
-                <td>{new Date(transacao.data).toLocaleDateString('pt-BR')}</td>
-                <td>{transacao.pessoaNome}</td>
-                <td>{transacao.categoriaNome}</td>
-                <td>
-                  <button onClick={() => editar(transacao)} className="btn-edit">
-                    Editar
-                  </button>
-                  <button onClick={() => excluir(transacao.id)} className="btn-delete">
-                    Excluir
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          ))}
+        </tbody>
+      </table>
     </div>
-  )
-}
+  );
+};
+
+export default Transacoes;

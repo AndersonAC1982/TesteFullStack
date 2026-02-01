@@ -1,38 +1,37 @@
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
-import Pessoas from './pages/Pessoas'
-import Categorias from './pages/Categorias'
-import Transacoes from './pages/Transacoes'
-import RelatoriosPessoas from './pages/RelatoriosPessoas'
-import RelatoriosCategorias from './pages/RelatoriosCategorias'
-import './App.css'
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import Pessoas from './pages/Pessoas';
+import Categorias from './pages/Categorias';
+import Transacoes from './pages/Transacoes';
+import Relatorios from './pages/Relatorios';
 
+// Estrutura principal da aplicação com definição de rotas e navegação global
 function App() {
   return (
-    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <div className="app">
-        <nav className="navbar">
-          <h1>Gastos Residenciais</h1>
-          <div className="nav-links">
-            <Link to="/">Pessoas</Link>
-            <Link to="/categorias">Categorias</Link>
-            <Link to="/transacoes">Transações</Link>
-            <Link to="/relatorios-pessoas">Relatório Pessoas</Link>
-            <Link to="/relatorios-categorias">Relatório Categorias</Link>
+    <Router>
+      <div className="min-h-screen bg-gray-100">
+        <nav className="bg-white shadow-md p-4">
+          <div className="container mx-auto flex justify-between items-center">
+            <h1 className="text-xl font-bold text-blue-600">Controle de Gastos</h1>
+            <div className="space-x-6">
+              <Link to="/" className="text-gray-600 hover:text-blue-600">Pessoas</Link>
+              <Link to="/categorias" className="text-gray-600 hover:text-blue-600">Categorias</Link>
+              <Link to="/transacoes" className="text-gray-600 hover:text-blue-600">Transações</Link>
+              <Link to="/relatorios" className="text-gray-600 hover:text-blue-600">Relatórios</Link>
+            </div>
           </div>
         </nav>
 
-        <main className="main-content">
+        <main className="container mx-auto p-6">
           <Routes>
             <Route path="/" element={<Pessoas />} />
             <Route path="/categorias" element={<Categorias />} />
             <Route path="/transacoes" element={<Transacoes />} />
-            <Route path="/relatorios-pessoas" element={<RelatoriosPessoas />} />
-            <Route path="/relatorios-categorias" element={<RelatoriosCategorias />} />
+            <Route path="/relatorios" element={<Relatorios />} />
           </Routes>
         </main>
       </div>
-    </BrowserRouter>
-  )
+    </Router>
+  );
 }
 
-export default App
+export default App;
