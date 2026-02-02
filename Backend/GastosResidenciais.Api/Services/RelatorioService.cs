@@ -13,32 +13,47 @@ namespace GastosResidenciais.Api.Services
             _context = context;
         }
 
-        public async Task<object> ObterTotaisPorPessoaAsync()
+        public async Task<IEnumerable<object>> ObterTotaisPorPessoaAsync()
         {
-            // Agrupa as transações por pessoa e calcula o saldo líquido Receitas  Despesas
-            return await _context.Transacoes
+            var transacoes = await _context.Transacoes
                 .Include(t => t.Pessoa)
-                .GroupBy(t => t.Pessoa.Nome)
+                .ToListAsync();
+
+            if (!transacoes.Any())
+                return new List<object>();
+
+            return transacoes
+                .GroupBy(t => new { t.PessoaId, Nome = t.Pessoa.Nome })
                 .Select(g => new
                 {
-                    Pessoa = g.Key,
-                    Total = g.Sum(t => t.Tipo == "Receita" ? t.Valor : -t.Valor)
+                    pessoaId = g.Key.PessoaId,
+                    pessoaNome = g.Key.Nome,
+                    totalReceitas = g.Where(t => t.Tipo == "Receita").Sum(t => t.Valor),
+                    totalDespesas = g.Where(t => t.Tipo == "Despesa").Sum(t => t.Valor),
+                    saldo = g.Sum(t => t.Tipo == "Receita" ? t.Valor : -t.Valor)
                 })
-                .ToListAsync();
+                .ToList();
         }
 
-        public async Task<object> ObterTotaisPorCategoriaAsync()
+        public async Task<IEnumerable<object>> ObterTotaisPorCategoriaAsync()
         {
-            // Consolida os valores gastos ou recebidos por categoria
-            return await _context.Transacoes
+            var transacoes = await _context.Transacoes
                 .Include(t => t.Categoria)
-                .GroupBy(t => t.Categoria.Nome)
+                .ToListAsync();
+
+            if (!transacoes.Any())
+                return new List<object>();
+
+            return transacoes
+                .GroupBy(t => new { t.CategoriaId, Nome = t.Categoria.Nome, Tipo = t.Categoria.Tipo })
                 .Select(g => new
                 {
-                    Categoria = g.Key,
-                    Total = g.Sum(t => t.Tipo == "Receita" ? t.Valor : -t.Valor)
+                    categoriaId = g.Key.CategoriaId,
+                    categoriaNome = g.Key.Nome,
+                    tipo = g.Key.Tipo,
+                    total = g.Sum(t => t.Valor)
                 })
-                .ToListAsync();
+                .ToList();
         }
     }
 }

@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react'
 import api from '../services/api'
 import { Pessoa } from '../types'
-import { maskCPF, unmaskCPF } from '../utils/masks'
 import ConfirmModal from '../components/ConfirmModal'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 export default function Pessoas() {
   const [pessoas, setPessoas] = useState<Pessoa[]>([])
   const [nome, setNome] = useState('')
-  const [cpf, setCpf] = useState('')
+  const [idade, setIdade] = useState('')
   const [editando, setEditando] = useState<number | null>(null)
   const [erro, setErro] = useState('')
   const [loading, setLoading] = useState(true)
@@ -36,20 +35,30 @@ export default function Pessoas() {
   }
 
   const salvar = async () => {
+    if (!nome.trim()) {
+      setErro('O nome é obrigatório')
+      return
+    }
+    const idadeNum = parseInt(idade)
+    if (isNaN(idadeNum) || idadeNum < 0 || idadeNum > 150) {
+      setErro('Informe uma idade válida (0 a 150)')
+      return
+    }
+
     try {
       setErro('')
       setSalvando(true)
-      const cpfSemMascara = unmaskCPF(cpf)
-
+      const dados = { nome: nome.trim(), idade: idadeNum }
+      
       if (editando) {
-        await api.put(`/pessoas/${editando}`, { id: editando, nome, cpf: cpfSemMascara })
+        await api.put(`/pessoas/${editando}`, { id: editando, ...dados })
       } else {
-        await api.post('/pessoas', { nome, cpf: cpfSemMascara })
+        await api.post('/pessoas', dados)
       }
       limpar()
       carregarPessoas()
     } catch (error: any) {
-      setErro(error.response?.data?.mensagem  'Erro ao salvar')
+      setErro(error.response?.data || 'Erro ao salvar pessoa')
     } finally {
       setSalvando(false)
     }
@@ -57,36 +66,16 @@ export default function Pessoas() {
 
   const editar = (pessoa: Pessoa) => {
     setNome(pessoa.nome)
-    setCpf(maskCPF(pessoa.cpf))
+    setIdade(pessoa.idade.toString())
     setEditando(pessoa.id)
-  }
-
-  const abrirModalExcluir = (id: number, nome: string) => {
-    setModalExcluir({ isOpen: true, id, nome })
-  }
-
-  const confirmarExclusao = async () => {
-    if (!modalExcluir.id) return
-
-    try {
-      await api.delete(`/pessoas/${modalExcluir.id}`)
-      setModalExcluir({ isOpen: false, id: null, nome: '' })
-      carregarPessoas()
-    } catch (error: any) {
-      setErro(error.response?.data?.mensagem  'Erro ao excluir')
-      setModalExcluir({ isOpen: false, id: null, nome: '' })
-    }
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const limpar = () => {
     setNome('')
-    setCpf('')
+    setIdade('')
     setEditando(null)
     setErro('')
-  }
-
-  const handleCpfChange = (value: string) => {
-    setCpf(maskCPF(value))
   }
 
   return (
@@ -95,64 +84,68 @@ export default function Pessoas() {
 
       <div className="form-card">
         <h3>{editando ? 'Editar Pessoa' : 'Nova Pessoa'}</h3>
-        {erro && <div className="erro">{erro}</div>}
+        {erro && <div className="erro" style={{background: '#fee2e2', color: '#b91c1c', padding: '10px', borderRadius: '4px', marginBottom: '15px'}}>{erro}</div>}
 
-        <input
-          type="text"
-          placeholder="Nome"
-          value={nome}
-          onChange={(e) => setNome(e.target.value)}
-          disabled={salvando}
-        />
+        <div className="input-group" style={{marginBottom: '15px'}}>
+          <label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>Nome Completo</label>
+          <input
+            type="text"
+            placeholder="Ex: João Silva"
+            value={nome}
+            onChange={(e) => setNome(e.target.value)}
+            maxLength={200}
+            disabled={salvando}
+            style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '4px'}}
+          />
+        </div>
 
-        <input
-          type="text"
-          placeholder="CPF (000.000.000-00)"
-          value={cpf}
-          onChange={(e) => handleCpfChange(e.target.value)}
-          maxLength={14}
-          disabled={salvando}
-        />
+        <div className="input-group" style={{marginBottom: '20px'}}>
+          <label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>Idade</label>
+          <input
+            type="number"
+            placeholder="Ex: 25"
+            value={idade}
+            onChange={(e) => setIdade(e.target.value)}
+            disabled={salvando}
+            style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '4px'}}
+          />
+        </div>
 
         <div className="button-group">
           <button onClick={salvar} className="btn-primary" disabled={salvando}>
             {salvando ? 'Salvando...' : editando ? 'Atualizar' : 'Cadastrar'}
           </button>
-          {editando && (
-            <button onClick={limpar} className="btn-secondary" disabled={salvando}>
+          {(editando || nome || idade) && (
+            <button onClick={limpar} className="btn-secondary" disabled={salvando} style={{marginLeft: '10px'}}>
               Cancelar
             </button>
           )}
         </div>
       </div>
 
-      <div className="table-card">
+      <div className="table-card" style={{marginTop: '30px'}}>
         <h3>Pessoas Cadastradas</h3>
         {loading ? (
-          <LoadingSpinner message="Carregando pessoas..." />
+          <LoadingSpinner message="Carregando..." />
         ) : (
-          <table>
+          <table style={{width: '100%', borderCollapse: 'collapse'}}>
             <thead>
-              <tr>
-                <th>ID</th>
-                <th>Nome</th>
-                <th>CPF</th>
-                <th>Opções</th>
+              <tr style={{background: '#5c6bc0', color: 'white'}}>
+                <th style={{padding: '12px', textAlign: 'left'}}>ID</th>
+                <th style={{padding: '12px', textAlign: 'left'}}>Nome</th>
+                <th style={{padding: '12px', textAlign: 'left'}}>Idade</th>
+                <th style={{padding: '12px', textAlign: 'center'}}>Ações</th>
               </tr>
             </thead>
             <tbody>
-              {pessoas.map((pessoa) => (
-                <tr key={pessoa.id}>
-                  <td>{pessoa.id}</td>
-                  <td>{pessoa.nome}</td>
-                  <td>{maskCPF(pessoa.cpf)}</td>
-                  <td>
-                    <button onClick={() => editar(pessoa)} className="btn-edit">
-                      Editar
-                    </button>
-                    <button onClick={() => abrirModalExcluir(pessoa.id, pessoa.nome)} className="btn-delete">
-                      Excluir
-                    </button>
+              {pessoas.map((p) => (
+                <tr key={p.id} style={{borderBottom: '1px solid #eee'}}>
+                  <td style={{padding: '12px'}}>{p.id}</td>
+                  <td style={{padding: '12px'}}>{p.nome}</td>
+                  <td style={{padding: '12px'}}>{p.idade} anos</td>
+                  <td style={{padding: '12px', textAlign: 'center'}}>
+                    <button onClick={() => editar(p)} className="btn-edit">Editar</button>
+                    <button onClick={() => setModalExcluir({ isOpen: true, id: p.id, nome: p.nome })} className="btn-delete" style={{marginLeft: '8px'}}>Excluir</button>
                   </td>
                 </tr>
               ))}
@@ -164,19 +157,13 @@ export default function Pessoas() {
       <ConfirmModal
         isOpen={modalExcluir.isOpen}
         title="Confirmar Exclusão"
-        message={
-          <div>
-            <p>Tem certeza que deseja excluir a pessoa:</p>
-            <p style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>{modalExcluir.nome}?</p>
-            <p style={{ marginTop: '1rem', color: '#c62828' }}>
-              Essa alteração será permanente..
-            </p>
-          </div>
-        }
-        onConfirm={confirmarExclusao}
+        message={`Deseja excluir ${modalExcluir.nome}? Todas as transações vinculadas também serão apagadas.`}
+        onConfirm={async () => {
+          await api.delete(`/pessoas/${modalExcluir.id}`)
+          setModalExcluir({ isOpen: false, id: null, nome: '' })
+          carregarPessoas()
+        }}
         onCancel={() => setModalExcluir({ isOpen: false, id: null, nome: '' })}
-        confirmText="Sim, excluir"
-        cancelText="Cancelar"
         type="danger"
       />
     </div>

@@ -1,7 +1,7 @@
+using Microsoft.EntityFrameworkCore;
 using GastosResidenciais.Api.Data;
 using GastosResidenciais.Api.Models;
 using GastosResidenciais.Api.Services.Interfaces;
-using Microsoft.EntityFrameworkCore;
 
 namespace GastosResidenciais.Api.Services
 {
@@ -14,7 +14,7 @@ namespace GastosResidenciais.Api.Services
             _context = context;
         }
 
-        public async Task<IEnumerable<Pessoa>> ListarTodasAsync()
+        public async Task<IEnumerable<Pessoa>> ObterTodasAsync()
         {
             return await _context.Pessoas.ToListAsync();
         }
@@ -26,32 +26,37 @@ namespace GastosResidenciais.Api.Services
 
         public async Task<Pessoa> CriarAsync(Pessoa pessoa)
         {
+            if (string.IsNullOrWhiteSpace(pessoa.Nome))
+                throw new ArgumentException("O nome é obrigatório.");
+
             _context.Pessoas.Add(pessoa);
             await _context.SaveChangesAsync();
             return pessoa;
         }
 
-        public async Task AtualizarAsync(Pessoa pessoa)
+        public async Task AtualizarAsync(int id, Pessoa pessoa)
         {
-            _context.Entry(pessoa).State = EntityState.Modified;
+            if (id != pessoa.Id)
+                throw new ArgumentException("ID inconsistente.");
+
+            var existente = await _context.Pessoas.FindAsync(id);
+            if (existente == null)
+                throw new KeyNotFoundException("Pessoa não encontrada.");
+
+            existente.Nome = pessoa.Nome;
+            existente.Idade = pessoa.Idade;
+
             await _context.SaveChangesAsync();
         }
 
-        public async Task<bool> DeletarAsync(int id)
+        public async Task ExcluirAsync(int id)
         {
             var pessoa = await _context.Pessoas.FindAsync(id);
-            if (pessoa == null) return false;
-
-            // Validação de integridade impede a exclusão se houver transações vinculadas
-            var possuiTransacoes = await _context.Transacoes.AnyAsync(t => t.PessoaId == id);
-            if (possuiTransacoes)
-            {
-                throw new InvalidOperationException("Não é possível excluir uma pessoa que possui transações registradas.");
-            }
+            if (pessoa == null)
+                throw new KeyNotFoundException("Pessoa não encontrada.");
 
             _context.Pessoas.Remove(pessoa);
             await _context.SaveChangesAsync();
-            return true;
         }
     }
 }

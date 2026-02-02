@@ -7,6 +7,7 @@ import LoadingSpinner from '../components/LoadingSpinner'
 export default function Categorias() {
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [nome, setNome] = useState('')
+  const [tipo, setTipo] = useState<'Receita' | 'Despesa'>('Despesa')
   const [editando, setEditando] = useState<number | null>(null)
   const [erro, setErro] = useState('')
   const [loading, setLoading] = useState(true)
@@ -34,47 +35,40 @@ export default function Categorias() {
   }
 
   const salvar = async () => {
+    if (!nome.trim()) {
+      setErro('O nome da categoria é obrigatório')
+      return
+    }
+
     try {
       setErro('')
       setSalvando(true)
+      const dados = { nome, tipo }
+      
       if (editando) {
-        await api.put(`/categorias/${editando}`, { id: editando, nome })
+        await api.put(`/categorias/${editando}`, { id: editando, ...dados })
       } else {
-        await api.post('/categorias', { nome })
+        await api.post('/categorias', dados)
       }
       limpar()
       carregarCategorias()
     } catch (error: any) {
-      setErro(error.response?.data?.mensagem  'Erro ao salvar')
+      setErro(error.response?.data?.mensagem || 'Erro ao salvar')
     } finally {
       setSalvando(false)
     }
   }
 
-  const editar = (categoria: Categoria) => {
+  const editar = (categoria: any) => {
     setNome(categoria.nome)
+    setTipo(categoria.tipo || 'Despesa')
     setEditando(categoria.id)
-  }
-
-  const abrirModalExcluir = (id: number, nome: string) => {
-    setModalExcluir({ isOpen: true, id, nome })
-  }
-
-  const confirmarExclusao = async () => {
-    if (!modalExcluir.id) return
-
-    try {
-      await api.delete(`/categorias/${modalExcluir.id}`)
-      setModalExcluir({ isOpen: false, id: null, nome: '' })
-      carregarCategorias()
-    } catch (error: any) {
-      setErro(error.response?.data?.mensagem  'Erro ao excluir')
-      setModalExcluir({ isOpen: false, id: null, nome: '' })
-    }
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const limpar = () => {
     setNome('')
+    setTipo('Despesa')
     setEditando(null)
     setErro('')
   }
@@ -87,19 +81,34 @@ export default function Categorias() {
         <h3>{editando ? 'Editar Categoria' : 'Nova Categoria'}</h3>
         {erro && <div className="erro">{erro}</div>}
 
-        <input
-          type="text"
-          placeholder="Nome da Categoria"
-          value={nome}
-          onChange={(e) => setNome(e.target.value)}
-          disabled={salvando}
-        />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <input
+            type="text"
+            placeholder="Nome da Categoria (ex: Salário, Alimentação...)"
+            value={nome}
+            onChange={(e) => setNome(e.target.value)}
+            disabled={salvando}
+          />
 
-        <div className="button-group">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+            <label style={{ fontSize: '0.9rem', color: '#666' }}>Tipo da Categoria:</label>
+            <select 
+              value={tipo} 
+              onChange={(e) => setTipo(e.target.value as 'Receita' | 'Despesa')} 
+              disabled={salvando}
+              style={{ padding: '10px', borderRadius: '8px', border: '1px solid #ddd' }}
+            >
+              <option value="Receita">Receita (Entrada de Dinheiro)</option>
+              <option value="Despesa">Despesa (Saída de Dinheiro)</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="button-group" style={{ marginTop: '20px' }}>
           <button onClick={salvar} className="btn-primary" disabled={salvando}>
             {salvando ? 'Salvando...' : editando ? 'Atualizar' : 'Cadastrar'}
           </button>
-          {editando && (
+          {(editando || nome) && (
             <button onClick={limpar} className="btn-secondary" disabled={salvando}>
               Cancelar
             </button>
@@ -117,24 +126,34 @@ export default function Categorias() {
               <tr>
                 <th>ID</th>
                 <th>Nome</th>
-                <th>Opções</th>
+                <th>Tipo</th>
+                <th style={{ textAlign: 'center' }}>Ações</th>
               </tr>
             </thead>
             <tbody>
-              {categorias.map((categoria) => (
-                <tr key={categoria.id}>
-                  <td>{categoria.id}</td>
-                  <td>{categoria.nome}</td>
-                  <td>
-                    <button onClick={() => editar(categoria)} className="btn-edit">
-                      Editar
-                    </button>
-                    <button onClick={() => abrirModalExcluir(categoria.id, categoria.nome)} className="btn-delete">
-                      Excluir
-                    </button>
-                  </td>
+              {categorias.length > 0 ? (
+                categorias.map((categoria: any) => (
+                  <tr key={categoria.id}>
+                    <td>{categoria.id}</td>
+                    <td><strong>{categoria.nome}</strong></td>
+                    <td className={categoria.tipo === 'Receita' ? 'receita' : 'despesa'}>
+                      {categoria.tipo}
+                    </td>
+                    <td style={{ textAlign: 'center' }}>
+                      <button onClick={() => editar(categoria)} className="btn-edit">
+                        Editar
+                      </button>
+                      <button onClick={() => setModalExcluir({ isOpen: true, id: categoria.id, nome: categoria.nome })} className="btn-delete">
+                        Excluir
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={4} style={{ textAlign: 'center' }}>Nenhuma categoria cadastrada.</td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         )}
@@ -143,19 +162,17 @@ export default function Categorias() {
       <ConfirmModal
         isOpen={modalExcluir.isOpen}
         title="Confirmar Exclusão"
-        message={
-          <div>
-            <p>Tem certeza que deseja excluir a categoria:</p>
-            <p style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>{modalExcluir.nome}?</p>
-            <p style={{ marginTop: '1rem', color: '#c62828' }}>
-              Essa alteração será permanente..
-            </p>
-          </div>
-        }
-        onConfirm={confirmarExclusao}
+        message={`Deseja excluir a categoria ${modalExcluir.nome}? Esta ação não pode ser desfeita.`}
+        onConfirm={async () => {
+          try {
+            await api.delete(`/categorias/${modalExcluir.id}`)
+            setModalExcluir({ isOpen: false, id: null, nome: '' })
+            carregarCategorias()
+          } catch (error: any) {
+            alert(error.response?.data?.mensagem || 'Erro ao excluir categoria')
+          }
+        }}
         onCancel={() => setModalExcluir({ isOpen: false, id: null, nome: '' })}
-        confirmText="Sim, excluir"
-        cancelText="Cancelar"
         type="danger"
       />
     </div>

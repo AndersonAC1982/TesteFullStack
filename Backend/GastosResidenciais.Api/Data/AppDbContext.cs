@@ -15,20 +15,21 @@ namespace GastosResidenciais.Api.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            modelBuilder.Entity<Pessoa>()
-                .HasIndex(p => p.Cpf)
-                .IsUnique();
-
+            // Categoria: Nome único (Regra do Teste)
             modelBuilder.Entity<Categoria>()
                 .HasIndex(c => c.Nome)
                 .IsUnique();
 
+            // Transação -> Pessoa: Exclusão em CASCATA (Regra do Teste)
+            // "Ao excluir uma pessoa, todas as suas transações devem ser excluídas"
             modelBuilder.Entity<Transacao>()
                 .HasOne(t => t.Pessoa)
                 .WithMany(p => p.Transacoes)
                 .HasForeignKey(t => t.PessoaId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.Cascade);
 
+            // Transação -> Categoria: RESTRICT (Boa prática)
+            // Categoria não pode ser deletada se tiver transações vinculadas
             modelBuilder.Entity<Transacao>()
                 .HasOne(t => t.Categoria)
                 .WithMany(c => c.Transacoes)
